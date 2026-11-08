@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Telefy.me</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0B0B0F;
+    color: #F5F5F7;
+    font-family: system-ui, sans-serif;
+    text-align: center;
+    padding: 24px;
+    box-sizing: border-box;
+  }
+  h1 { font-size: 24px; margin: 0 0 8px; }
+  p { color: #9A9AA8; margin: 0; font-size: 16px; line-height: 1.5; }
+  .ok { color: #3DD68C; margin-top: 16px; font-size: 14px; }
+</style>
+</head>
+<body>
+  <div>
+    <h1 id="greeting">স্বাগতম</h1>
+    <p id="info">Mini App চালু হয়েছে।</p>
+    <p class="ok" id="status"></p>
+  </div>
+
+  <script>
+    var tg = window.Telegram && window.Telegram.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      var user = tg.initDataUnsafe && tg.initDataUnsafe.user;
+      if (user) {
+        document.getElementById("greeting").textContent = "স্বাগতম, " + user.first_name + "!";
+        document.getElementById("status").textContent = "Telegram থেকে সংযোগ সফল হয়েছে।";
+      } else {
+        document.getElementById("info").textContent = "এই পেজ Telegram-এর ভেতর থেকে খুলুন।";
+      }
+    }
+  </script>
+</body>
+</html>
