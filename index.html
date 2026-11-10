@@ -20,29 +20,65 @@
     box-sizing: border-box;
   }
   h1 { font-size: 24px; margin: 0 0 8px; }
-  p { color: #9A9AA8; margin: 0; font-size: 16px; line-height: 1.5; }
-  .ok { color: #3DD68C; margin-top: 16px; font-size: 14px; }
+  p { color: #9A9AA8; margin: 6px 0 0; font-size: 16px; line-height: 1.5; }
+  .ok { color: #3DD68C; }
+  .err { color: #FF6B86; }
+  .coins { color: #F5B83D; font-weight: 700; }
 </style>
 </head>
 <body>
   <div>
     <h1 id="greeting">স্বাগতম</h1>
-    <p id="info">Mini App চালু হয়েছে।</p>
-    <p class="ok" id="status"></p>
+    <p id="info">লোড হচ্ছে...</p>
+    <p id="coins" class="coins"></p>
+    <p id="status"></p>
   </div>
 
   <script>
     var tg = window.Telegram && window.Telegram.WebApp;
-    if (tg) {
+    var greeting = document.getElementById("greeting");
+    var info = document.getElementById("info");
+    var coins = document.getElementById("coins");
+    var status = document.getElementById("status");
+
+    function showError(message) {
+      status.textContent = message;
+      status.className = "err";
+    }
+
+    if (!tg || !tg.initData) {
+      info.textContent = "এই পেজ Telegram-এর ভেতর থেকে খুলুন।";
+    } else {
       tg.ready();
       tg.expand();
-      var user = tg.initDataUnsafe && tg.initDataUnsafe.user;
-      if (user) {
-        document.getElementById("greeting").textContent = "স্বাগতম, " + user.first_name + "!";
-        document.getElementById("status").textContent = "Telegram থেকে সংযোগ সফল হয়েছে।";
-      } else {
-        document.getElementById("info").textContent = "এই পেজ Telegram-এর ভেতর থেকে খুলুন।";
-      }
+
+      fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ initData: tg.initData })
+      })
+        .then(function (res) {
+          return res.json().then(function (data) {
+            return { ok: res.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          if (!result.ok) {
+            info.textContent = "";
+            showError(result.data.error || "কিছু একটা সমস্যা হয়েছে");
+            return;
+          }
+          var user = result.data.user;
+          greeting.textContent = "স্বাগতম, " + user.display_name + "!";
+          info.textContent = "@" + user.username;
+          coins.textContent = "কয়েন: " + user.coins;
+          status.textContent = "আপনার অ্যাকাউন্ট তৈরি আছে।";
+          status.className = "ok";
+        })
+        .catch(function () {
+          info.textContent = "";
+          showError("সার্ভারের সাথে যোগাযোগ করা যায়নি");
+        });
     }
   </script>
 </body>
