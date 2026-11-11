@@ -6,6 +6,7 @@
 <title>Telefy.me</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&amp;display=swap">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.1.0/dist/tus.min.js"></script>
 <style>
   :root {
     --bg: #0B0B0F; --card: #15151B; --line: #26262F; --line2: #34343F;
@@ -49,7 +50,17 @@
   .tabs button.on { color: #fff; font-weight: 700; border-bottom-color: var(--brand); }
   .empty { padding: 48px 24px; text-align: center; color: var(--muted); font-size: 15px; line-height: 1.6; }
 
-  /* এডিট */
+  /* ভিডিওর গ্রিড */
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding-top: 2px; }
+  .cell { position: relative; aspect-ratio: 9 / 16; background: var(--card); border: 0; padding: 0; overflow: hidden; color: #fff; cursor: pointer; }
+  .cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cell .ph { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 6px; text-align: center; font-size: 12px; color: var(--muted); }
+  .cell .ph.bad { color: var(--err); }
+  .cell .dur { position: absolute; left: 6px; bottom: 6px; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,0.6); font-size: 11px; font-weight: 600; }
+  .spin { width: 18px; height: 18px; border-radius: 999px; border: 2px solid var(--line2); border-top-color: var(--brand-soft); animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* এডিট ও আপলোড */
   .edit-top { height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; border-bottom: 1px solid #1D1D25; }
   .edit-top h1 { margin: 0; font-size: 18px; font-weight: 700; }
   .icon-btn { width: 48px; height: 48px; border: 0; background: transparent; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; }
@@ -74,9 +85,24 @@
   .seg input { width: 16px; height: 16px; margin: 0; accent-color: #fff; }
   .msg { min-height: 20px; font-size: 14px; color: var(--err); text-align: center; padding: 0 16px; }
   .savebar { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); background: var(--bg); border-top: 1px solid #1D1D25; }
-  .savebar .in { max-width: 480px; margin: 0 auto; }
+  .savebar .in { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
   .save { width: 100%; height: 52px; border: 0; border-radius: 14px; background: var(--brand); color: #fff; font-size: 17px; font-weight: 700; cursor: pointer; }
-  .save:disabled { opacity: 0.6; }
+  .save:disabled { opacity: 0.5; }
+  .cancel { width: 100%; height: 44px; border: 1px solid var(--line2); border-radius: 12px; background: transparent; color: var(--text); font-size: 15px; font-weight: 600; cursor: pointer; }
+
+  .pick { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; height: 170px; border: 2px dashed var(--line2); border-radius: 16px; background: var(--card); color: var(--text); cursor: pointer; text-align: center; padding: 12px; }
+  .pick b { font-size: 16px; } .pick small { color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .picked video { width: 100%; max-height: 320px; border-radius: 12px; background: #000; display: block; }
+  .picked .meta { margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted); }
+  .picked .change { border: 1px solid var(--line2); background: transparent; color: var(--text); height: 34px; padding: 0 12px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; flex: none; }
+  .bar { height: 8px; border-radius: 999px; background: #24242C; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--brand); transition: width 0.2s; }
+  .pct { margin-top: 6px; font-size: 13px; color: var(--soft); text-align: center; }
+
+  /* প্লেয়ার */
+  .player { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; flex-direction: column; }
+  .player iframe { flex: 1; width: 100%; border: 0; }
+  .player .close { position: absolute; top: 10px; left: 10px; width: 44px; height: 44px; border: 0; border-radius: 999px; background: rgba(0,0,0,0.55); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; }
 
   /* নিচের মেনু */
   .nav { position: fixed; left: 0; right: 0; bottom: 0; height: 80px; background: var(--bg); border-top: 1px solid #1D1D25; padding-bottom: env(safe-area-inset-bottom); }
@@ -85,7 +111,7 @@
   .nav button.on { color: #fff; font-weight: 600; }
   .nav .plus { width: 52px; height: 36px; min-width: 0; min-height: 0; border-radius: 10px; background: var(--brand); color: #fff; }
 
-  .toast { position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%); background: #24242C; color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity 0.2s; max-width: 90%; text-align: center; }
+  .toast { position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%); background: #24242C; color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity 0.2s; max-width: 90%; text-align: center; z-index: 60; }
   .toast.show { opacity: 1; }
 </style>
 </head>
@@ -124,7 +150,9 @@
       <button class="on">ভিডিও</button>
       <button id="liked-tab">পছন্দের</button>
     </div>
-    <div class="empty">এখনো কোনো ভিডিও নেই।<br>ভিডিও আপলোডের সুবিধা শীঘ্রই আসছে।</div>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="grid-empty" hidden>এখনো কোনো ভিডিও নেই।<br>নিচের + চেপে প্রথম ভিডিওটি দিন।</div>
+    <div class="empty" id="grid-error" hidden style="color: var(--err)"></div>
   </section>
 
   <!-- প্রোফাইল এডিট -->
@@ -169,6 +197,43 @@
     <div class="savebar"><div class="in"><button class="save" id="save">সেভ করুন</button></div></div>
   </section>
 
+  <!-- নতুন ভিডিও আপলোড -->
+  <section id="view-upload" hidden>
+    <div class="edit-top">
+      <button class="icon-btn" id="upload-back" aria-label="পেছনে যান">
+        <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+      </button>
+      <h1>নতুন ভিডিও</h1>
+      <div style="width: 48px"></div>
+    </div>
+    <div class="form" style="padding-top: 16px; padding-bottom: 150px">
+      <input type="file" id="file" accept="video/*" hidden>
+      <label class="pick" id="pick" for="file">
+        <svg aria-hidden="true" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--brand-soft)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16v4h16v-4M12 4v12M7 9l5-5 5 5"></path></svg>
+        <b>ভিডিও বেছে নিন</b>
+        <small>সর্বোচ্চ ৬০ সেকেন্ড ও ১০০ MB।<br>পোর্ট্রেট (লম্বা) ভিডিও সবচেয়ে ভালো দেখায়।</small>
+      </label>
+      <div class="picked" id="picked" hidden>
+        <video id="preview" controls muted playsinline preload="metadata"></video>
+        <div class="meta"><span id="pk-info"></span><label class="change" for="file" style="display:flex;align-items:center">ভিডিও বদলান</label></div>
+      </div>
+      <div class="field">
+        <label for="u-caption">ক্যাপশন</label>
+        <textarea class="input" id="u-caption" maxlength="150" placeholder="ভিডিওর সম্পর্কে কিছু লিখুন"></textarea>
+        <span class="count" id="u-count">0/150</span>
+      </div>
+      <div id="progress" hidden>
+        <div class="bar"><i id="bar"></i></div>
+        <div class="pct" id="pct">আপলোড শুরু হচ্ছে...</div>
+      </div>
+      <div class="msg" id="u-msg" role="alert"></div>
+    </div>
+    <div class="savebar"><div class="in">
+      <button class="save" id="post" disabled>পোস্ট করুন</button>
+      <button class="cancel" id="cancel" hidden>আপলোড বাতিল করুন</button>
+    </div></div>
+  </section>
+
   <!-- নিচের মেনু -->
   <nav class="nav" id="nav" hidden><div class="in">
     <button data-soon>
@@ -177,7 +242,7 @@
     <button data-soon>
       <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M15.5 8.5l-2 5-5 2 2-5z"></path></svg><span>ডিসকভার</span>
     </button>
-    <button class="plus" data-soon aria-label="নতুন ভিডিও আপলোড">
+    <button class="plus" id="nav-plus" aria-label="নতুন ভিডিও আপলোড">
       <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
     </button>
     <button data-soon>
@@ -188,6 +253,14 @@
     </button>
   </div></nav>
 
+  <!-- ভিডিও চালানোর পর্দা -->
+  <div class="player" id="player" hidden>
+    <button class="close" id="player-close" aria-label="বন্ধ করুন">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+    </button>
+    <iframe id="player-frame" title="ভিডিও" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen></iframe>
+  </div>
+
   <div class="toast" id="toast" role="status"></div>
 </div>
 
@@ -195,16 +268,33 @@
 (function () {
   var tg = window.Telegram && window.Telegram.WebApp;
   var $ = function (id) { return document.getElementById(id); };
-  var user = null;
-  var toastTimer = null;
   var USERNAME_RE = /^[a-z0-9_]{3,24}$/;
+  var MAX_SECONDS = 60;
+  var MAX_BYTES = 100 * 1024 * 1024;
+
+  var user = null;
+  var current = "profile";
+  var toastTimer = null;
+
+  // ভিডিও
+  var videos = [];
+  var libraryId = null;
+  var loadingVideos = false;
+  var pollTimer = null;
+  var pollCount = 0;
+
+  // আপলোড
+  var picked = null;
+  var previewUrl = null;
+  var uploading = false;
+  var currentUpload = null;
 
   function toast(message) {
     var el = $("toast");
     el.textContent = message;
     el.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.classList.remove("show"); }, 1800);
+    toastTimer = setTimeout(function () { el.classList.remove("show"); }, 2200);
   }
 
   function api(path, payload) {
@@ -224,15 +314,36 @@
     return chars.length ? chars[0].toUpperCase() : "?";
   }
 
+  function fmtDuration(seconds) {
+    var s = Math.round(seconds);
+    return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2);
+  }
+
+  function playerOpen() { return !$("player").hidden; }
+
+  function syncBackButton() {
+    if (!(tg && tg.BackButton)) return;
+    if (current !== "profile" || playerOpen()) { tg.BackButton.show(); } else { tg.BackButton.hide(); }
+  }
+
   function show(name) {
+    current = name;
     $("view-profile").hidden = name !== "profile";
     $("view-edit").hidden = name !== "edit";
+    $("view-upload").hidden = name !== "upload";
     $("nav").hidden = name !== "profile";
-    if (tg && tg.BackButton) {
-      if (name === "edit") { tg.BackButton.show(); } else { tg.BackButton.hide(); }
-    }
+    syncBackButton();
     window.scrollTo(0, 0);
   }
+
+  function goBack() {
+    if (playerOpen()) { closePlayer(); return; }
+    if (current === "upload" && uploading) { toast("আপলোড চলছে, থামাতে 'আপলোড বাতিল করুন' চাপুন"); return; }
+    if (current === "upload") { resetUploadForm(); }
+    show("profile");
+  }
+
+  /* ---------- প্রোফাইল ---------- */
 
   function renderProfile() {
     $("p-username").textContent = "@" + user.username;
@@ -320,19 +431,273 @@
     });
   }
 
+  /* ---------- ভিডিওর গ্রিড ---------- */
+
+  function hasPending() {
+    return videos.some(function (v) { return v.status === "uploading" || v.status === "processing"; });
+  }
+
+  function schedulePoll() {
+    clearTimeout(pollTimer);
+    if (!hasPending() || current !== "profile" || pollCount >= 80) return;
+    pollCount++;
+    pollTimer = setTimeout(loadVideos, 6000);
+  }
+
+  function placeholder(text, bad, spinning) {
+    var box = document.createElement("div");
+    box.className = "ph" + (bad ? " bad" : "");
+    if (spinning) {
+      var spin = document.createElement("div");
+      spin.className = "spin";
+      box.appendChild(spin);
+    }
+    var label = document.createElement("span");
+    label.textContent = text;
+    box.appendChild(label);
+    return box;
+  }
+
+  function renderGrid() {
+    var grid = $("grid");
+    while (grid.firstChild) { grid.removeChild(grid.firstChild); }
+    $("grid-empty").hidden = videos.length > 0;
+    $("grid-error").hidden = true;
+
+    videos.forEach(function (v) {
+      var cell = document.createElement("button");
+      cell.className = "cell";
+      cell.type = "button";
+
+      if (v.status === "ready") {
+        cell.setAttribute("aria-label", v.caption || "ভিডিও চালান");
+        if (v.thumbnail) {
+          var img = document.createElement("img");
+          img.alt = "";
+          img.loading = "lazy";
+          img.src = v.thumbnail;
+          img.onerror = function () {
+            if (img.parentNode) { cell.removeChild(img); }
+            cell.insertBefore(placeholder("ছবি আসছে...", false, true), cell.firstChild);
+          };
+          cell.appendChild(img);
+        }
+        if (v.duration) {
+          var dur = document.createElement("span");
+          dur.className = "dur";
+          dur.textContent = fmtDuration(v.duration);
+          cell.appendChild(dur);
+        }
+        cell.addEventListener("click", function () { openPlayer(v); });
+      } else if (v.status === "failed") {
+        cell.appendChild(placeholder("ব্যর্থ হয়েছে", true, false));
+        cell.addEventListener("click", function () { toast("এই ভিডিওটি আপলোড বা প্রসেস করা যায়নি"); });
+      } else {
+        cell.appendChild(placeholder(v.status === "uploading" ? "আপলোড হচ্ছে..." : "প্রসেস হচ্ছে...", false, true));
+        cell.addEventListener("click", function () { toast("ভিডিও প্রসেস হচ্ছে, একটু অপেক্ষা করুন"); });
+      }
+      grid.appendChild(cell);
+    });
+  }
+
+  function loadVideos() {
+    if (loadingVideos) return;
+    loadingVideos = true;
+    api("/api/videos", { action: "mine" }).then(function (result) {
+      loadingVideos = false;
+      if (!result.ok) {
+        $("grid-error").textContent = result.data.error || "ভিডিওর তালিকা আনা যায়নি";
+        $("grid-error").hidden = false;
+        return;
+      }
+      libraryId = result.data.libraryId;
+      videos = result.data.videos || [];
+      renderGrid();
+      schedulePoll();
+    }).catch(function () {
+      loadingVideos = false;
+    });
+  }
+
+  function openPlayer(v) {
+    if (!/^[0-9a-fA-F-]{36}$/.test(String(v.video_id)) || !/^\d+$/.test(String(libraryId))) { return; }
+    $("player-frame").src = "https://player.mediadelivery.net/embed/" + libraryId + "/" + v.video_id + "?autoplay=true&loop=true&preload=true";
+    $("player").hidden = false;
+    syncBackButton();
+  }
+
+  function closePlayer() {
+    $("player-frame").src = "about:blank";
+    $("player").hidden = true;
+    syncBackButton();
+  }
+
+  /* ---------- ভিডিও আপলোড ---------- */
+
+  function setUploadMsg(text) { $("u-msg").textContent = text || ""; }
+
+  function setProgress(percent, label) {
+    $("bar").style.width = percent + "%";
+    $("pct").textContent = label || ("আপলোড হচ্ছে: " + percent + "%");
+  }
+
+  function resetUploadForm() {
+    picked = null;
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+    var video = $("preview");
+    video.removeAttribute("src");
+    video.load();
+    $("file").value = "";
+    $("picked").hidden = true;
+    $("pick").hidden = false;
+    $("u-caption").value = "";
+    $("u-count").textContent = "0/150";
+    $("progress").hidden = true;
+    $("bar").style.width = "0";
+    $("post").disabled = true;
+    $("post").textContent = "পোস্ট করুন";
+    $("cancel").hidden = true;
+    setUploadMsg("");
+  }
+
+  function openUpload() {
+    resetUploadForm();
+    show("upload");
+  }
+
+  function onFilePicked() {
+    var input = $("file");
+    var file = input.files && input.files[0];
+    if (!file || uploading) { return; }
+
+    setUploadMsg("");
+    var looksLikeVideo = /^video\//.test(file.type) || /\.(mp4|mov|m4v|webm|mkv|3gp)$/i.test(file.name);
+    if (!looksLikeVideo) { setUploadMsg("শুধু ভিডিও ফাইল বাছুন"); input.value = ""; return; }
+    if (file.size > MAX_BYTES) { setUploadMsg("ভিডিও ১০০ MB-এর বেশি বড়, ছোট ভিডিও বাছুন"); input.value = ""; return; }
+
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); }
+    previewUrl = URL.createObjectURL(file);
+    picked = { file: file, duration: null };
+
+    var sizeText = (file.size / 1048576).toFixed(1) + " MB";
+    var video = $("preview");
+    $("post").disabled = true;
+    $("pick").hidden = true;
+    $("picked").hidden = false;
+    $("pk-info").textContent = "পরীক্ষা হচ্ছে... · " + sizeText;
+
+    video.onloadedmetadata = function () {
+      var duration = video.duration;
+      if (isFinite(duration) && duration > MAX_SECONDS + 0.5) {
+        setUploadMsg("ভিডিও " + MAX_SECONDS + " সেকেন্ডের বেশি লম্বা (" + fmtDuration(duration) + "), ছোট ভিডিও বাছুন");
+        $("pk-info").textContent = fmtDuration(duration) + " · " + sizeText;
+        picked = null;
+        input.value = "";
+        return;
+      }
+      picked.duration = isFinite(duration) ? duration : null;
+      $("pk-info").textContent = (picked.duration ? fmtDuration(picked.duration) + " · " : "") + sizeText;
+      $("post").disabled = false;
+    };
+    video.onerror = function () {
+      // কিছু ফোনের ভিডিও ব্রাউজারে প্রিভিউ হয় না। সার্ভার পরে নিজেই দৈর্ঘ্য যাচাই করবে
+      if (!picked) { return; }
+      $("pk-info").textContent = "প্রিভিউ দেখানো যাচ্ছে না · " + sizeText;
+      $("post").disabled = false;
+    };
+    video.src = previewUrl;
+    input.value = "";
+  }
+
+  function finishUpload(success, message) {
+    uploading = false;
+    currentUpload = null;
+    $("cancel").hidden = true;
+    $("post").textContent = "পোস্ট করুন";
+    if (success) {
+      resetUploadForm();
+      show("profile");
+      pollCount = 0;
+      loadVideos();
+      toast("ভিডিও আপলোড হয়েছে, প্রসেস হচ্ছে");
+    } else {
+      $("post").disabled = !picked;
+      $("progress").hidden = true;
+      setUploadMsg(message || "আপলোড করা যায়নি, আবার চেষ্টা করুন");
+    }
+  }
+
+  function startUpload() {
+    if (!picked || uploading) { return; }
+    if (!window.tus) { setUploadMsg("আপলোডের টুল লোড হয়নি, ইন্টারনেট দেখে অ্যাপটি আবার খুলুন"); return; }
+
+    uploading = true;
+    setUploadMsg("");
+    $("post").disabled = true;
+    $("post").textContent = "আপলোড হচ্ছে...";
+    $("cancel").hidden = false;
+    $("progress").hidden = false;
+    setProgress(0, "প্রস্তুত হচ্ছে...");
+
+    api("/api/video-create", { caption: $("u-caption").value.trim() }).then(function (result) {
+      if (!result.ok) { throw new Error(result.data.error || "আপলোড শুরু করা যায়নি"); }
+      var up = result.data.upload;
+      var file = picked.file;
+      var upload = new window.tus.Upload(file, {
+        endpoint: up.endpoint,
+        retryDelays: [0, 3000, 5000, 10000, 20000, 60000],
+        storeFingerprintForResuming: false,
+        headers: {
+          AuthorizationSignature: up.signature,
+          AuthorizationExpire: String(up.expire),
+          VideoId: up.videoId,
+          LibraryId: String(up.libraryId)
+        },
+        metadata: { filetype: file.type || "video/mp4", title: "Telefy video" },
+        onProgress: function (sent, total) { setProgress(Math.round((sent / total) * 100)); },
+        onError: function () { finishUpload(false, "আপলোড ব্যর্থ হয়েছে, নেটওয়ার্ক দেখে আবার চেষ্টা করুন"); },
+        onSuccess: function () { finishUpload(true); }
+      });
+      currentUpload = upload;
+      upload.start();
+    }).catch(function (error) {
+      finishUpload(false, error && error.message ? error.message : "সার্ভারের সাথে যোগাযোগ করা যায়নি");
+    });
+  }
+
+  function cancelUpload() {
+    if (!uploading) { return; }
+    var upload = currentUpload;
+    if (upload) {
+      try { upload.abort(); } catch (e) { /* কিছু করার নেই */ }
+    }
+    finishUpload(false, "আপলোড বাতিল করা হয়েছে");
+  }
+
+  /* ---------- শুরু ---------- */
+
   function soon() { toast("এই সুবিধা শীঘ্রই আসছে"); }
 
   function bind() {
     $("edit-open").addEventListener("click", openEdit);
-    $("edit-back").addEventListener("click", function () { show("profile"); });
+    $("edit-back").addEventListener("click", goBack);
+    $("upload-back").addEventListener("click", goBack);
     $("save").addEventListener("click", save);
     $("f-bio").addEventListener("input", updateBioCount);
     Array.prototype.forEach.call(genderInputs(), function (input) { input.addEventListener("change", syncGender); });
     ["share", "buy", "liked-tab"].forEach(function (id) { $(id).addEventListener("click", soon); });
     Array.prototype.forEach.call(document.querySelectorAll("[data-soon]"), function (el) { el.addEventListener("click", soon); });
-    if (tg && tg.BackButton && tg.BackButton.onClick) {
-      tg.BackButton.onClick(function () { show("profile"); });
-    }
+
+    $("nav-plus").addEventListener("click", openUpload);
+    $("file").addEventListener("change", onFilePicked);
+    $("post").addEventListener("click", startUpload);
+    $("cancel").addEventListener("click", cancelUpload);
+    $("u-caption").addEventListener("input", function () {
+      $("u-count").textContent = Array.from($("u-caption").value).length + "/150";
+    });
+    $("player-close").addEventListener("click", closePlayer);
+
+    if (tg && tg.BackButton && tg.BackButton.onClick) { tg.BackButton.onClick(goBack); }
   }
 
   function fail(message) {
@@ -356,6 +721,7 @@
     $("state").hidden = true;
     renderProfile();
     show("profile");
+    loadVideos();
   }).catch(function () {
     fail("সার্ভারের সাথে যোগাযোগ করা যায়নি");
   });
