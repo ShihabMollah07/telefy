@@ -39,6 +39,7 @@
   .row { margin: 12px 16px 0; display: flex; gap: 10px; }
   .btn { height: 44px; border: 0; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; }
   .btn.primary { flex: 1; background: var(--brand); color: #fff; }
+  .btn.ghost-wide { flex: 1; border: 1px solid var(--line2); background: var(--card); color: var(--text); }
   .btn.ghost { width: 48px; border: 1px solid var(--line2); background: var(--card); color: var(--text); display: flex; align-items: center; justify-content: center; }
   .coin-card { margin: 12px 16px 0; height: 64px; padding: 0 12px 0 14px; border-radius: 14px; background: linear-gradient(135deg, #2A2210, #1A150A); border: 1px solid #4A3B14; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .coin-card .l { display: flex; align-items: center; gap: 12px; }
@@ -148,6 +149,24 @@
   .sheet form button { border: 0; background: var(--brand); color: #fff; border-radius: 999px; padding: 0 18px; font-size: 15px; font-weight: 600; cursor: pointer; }
   .sheet form button:disabled { opacity: 0.5; }
 
+  /* ডিসকভার ও অন্যের প্রোফাইল */
+  .search { padding: 4px 16px 8px; }
+  .sec { margin: 14px 16px 8px; font-size: 16px; font-weight: 700; }
+  .creators { display: flex; gap: 10px; overflow-x: auto; padding: 0 16px 4px; scrollbar-width: none; }
+  .creators::-webkit-scrollbar { display: none; }
+  .ucard { flex: none; width: 128px; padding: 14px 8px 12px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; cursor: pointer; }
+  .ucard .av, .urow .av { border-radius: 999px; background: linear-gradient(135deg, var(--brand), var(--gold)); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; flex: none; }
+  .ucard .av { width: 56px; height: 56px; font-size: 22px; margin-bottom: 4px; }
+  .ucard b, .urow b { font-size: 14px; font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+  .ucard span, .urow span { font-size: 12px; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+  .fbtn { margin-top: 8px; height: 32px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--brand); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .fbtn.on { background: transparent; border: 1px solid var(--line2); color: var(--soft); }
+  .urow { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; }
+  .urow .av { width: 46px; height: 46px; font-size: 18px; }
+  .urow .tx { flex: 1; min-width: 0; }
+  .urow .fbtn { margin: 0; flex: none; }
+  .item .info b { pointer-events: auto; cursor: pointer; display: inline-block; }
+
   .toast { position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%); background: #24242C; color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity 0.2s; max-width: 90%; text-align: center; z-index: 60; }
   .toast.show { opacity: 1; }
 </style>
@@ -172,9 +191,9 @@
       <div class="bio" id="p-bio"></div>
     </div>
     <div class="stats">
-      <div><b>0</b><span>অনুসরণ</span></div>
-      <div><b>0</b><span>ফলোয়ার</span></div>
-      <div><b>0</b><span>লাইক</span></div>
+      <div><b id="p-following">0</b><span>অনুসরণ</span></div>
+      <div><b id="p-followers">0</b><span>ফলোয়ার</span></div>
+      <div><b id="p-likes">0</b><span>লাইক</span></div>
     </div>
     <div class="row">
       <button class="btn primary" id="edit-open">প্রোফাইল এডিট</button>
@@ -196,6 +215,54 @@
     <div class="grid" id="grid"></div>
     <div class="empty" id="grid-empty" hidden>এখনো কোনো ভিডিও নেই।<br>নিচের + চেপে প্রথম ভিডিওটি দিন।</div>
     <div class="empty" id="grid-error" hidden style="color: var(--err)"></div>
+  </section>
+
+  <!-- ডিসকভার -->
+  <section id="view-discover" hidden>
+    <div class="topbar"><h1>ডিসকভার</h1></div>
+    <div class="search"><input class="input" id="d-q" type="search" maxlength="30" placeholder="নাম বা @ইউজারনেম খুঁজুন" autocomplete="off" aria-label="ইউজার খুঁজুন"></div>
+    <div id="d-results" hidden></div>
+    <div id="d-home">
+      <h2 class="sec">নতুন ক্রিয়েটর</h2>
+      <div class="creators" id="d-creators"></div>
+      <h2 class="sec">ট্রেন্ডিং ভিডিও</h2>
+      <div class="grid" id="d-trending"></div>
+    </div>
+    <div class="empty" id="d-msg" hidden></div>
+  </section>
+
+  <!-- অন্যের প্রোফাইল -->
+  <section id="view-user" hidden>
+    <div class="edit-top">
+      <button class="icon-btn" id="ou-back" aria-label="পেছনে যান">
+        <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+      </button>
+      <h1 id="ou-username"></h1>
+      <div style="width: 48px"></div>
+    </div>
+    <div class="head">
+      <div class="ring"><div class="avatar" id="ou-avatar"></div></div>
+      <div class="name" id="ou-name"></div>
+      <div class="bio" id="ou-bio"></div>
+    </div>
+    <div class="stats">
+      <div><b id="ou-following">0</b><span>অনুসরণ</span></div>
+      <div><b id="ou-followers">0</b><span>ফলোয়ার</span></div>
+      <div><b id="ou-likes">0</b><span>লাইক</span></div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="ou-follow">ফলো করুন</button>
+      <button class="btn ghost" id="ou-message" aria-label="মেসেজ পাঠান">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H10l-5 4v-4a2 2 0 0 1-1-1.7z"></path></svg>
+      </button>
+      <button class="btn ghost" id="ou-gift" aria-label="কয়েন গিফট করুন">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5B83D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"></path></svg>
+      </button>
+    </div>
+    <div class="tabs" style="grid-template-columns: 1fr"><button class="on">ভিডিও</button></div>
+    <div class="grid" id="ou-grid"></div>
+    <div class="empty" id="ou-empty" hidden>এখনো কোনো ভিডিও নেই।</div>
+    <div class="empty" id="ou-error" hidden style="color: var(--err)"></div>
   </section>
 
   <!-- প্রোফাইল এডিট -->
@@ -282,7 +349,7 @@
     <button id="nav-home">
       <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg><span>হোম</span>
     </button>
-    <button data-soon>
+    <button id="nav-discover">
       <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M15.5 8.5l-2 5-5 2 2-5z"></path></svg><span>ডিসকভার</span>
     </button>
     <button class="plus" id="nav-plus" aria-label="নতুন ভিডিও আপলোড">
@@ -349,6 +416,13 @@
   var lastTab = "feed";
   var likePending = {};
 
+  // ডিসকভার ও অন্যের প্রোফাইল
+  var searchTimer = null;
+  var searchSeq = 0;
+  var viewed = null;
+  var viewedLoadSeq = 0;
+  var userReturn = "feed";
+
   // কমেন্ট
   var sheetVideo = null;
   var sheetNext = null;
@@ -396,19 +470,22 @@
 
   function syncBackButton() {
     if (!(tg && tg.BackButton)) return;
-    var onTab = current === "profile" || current === "feed";
+    var onTab = current === "profile" || current === "feed" || current === "discover";
     if (!onTab || playerOpen() || sheetOpen()) { tg.BackButton.show(); } else { tg.BackButton.hide(); }
   }
 
   function show(name) {
     current = name;
-    if (name === "profile" || name === "feed") { lastTab = name; }
+    if (name === "profile" || name === "feed" || name === "discover") { lastTab = name; }
     $("view-feed").hidden = name !== "feed";
     $("view-profile").hidden = name !== "profile";
     $("view-edit").hidden = name !== "edit";
     $("view-upload").hidden = name !== "upload";
-    $("nav").hidden = !(name === "profile" || name === "feed");
+    $("view-discover").hidden = name !== "discover";
+    $("view-user").hidden = name !== "user";
+    $("nav").hidden = !(name === "profile" || name === "feed" || name === "discover");
     $("nav-home").className = name === "feed" ? "on" : "";
+    $("nav-discover").className = name === "discover" ? "on" : "";
     $("nav-profile").className = name === "profile" ? "on" : "";
     if (name === "feed") { activateVisible(); } else { setActive(null); }
     syncBackButton();
@@ -420,6 +497,7 @@
     if (playerOpen()) { closePlayer(); return; }
     if (current === "upload" && uploading) { toast("আপলোড চলছে, থামাতে 'আপলোড বাতিল করুন' চাপুন"); return; }
     if (current === "upload") { resetUploadForm(); show(lastTab); return; }
+    if (current === "user") { show(userReturn); return; }
     show("profile");
   }
 
@@ -472,6 +550,7 @@
     info.className = "info";
     var who = document.createElement("b");
     who.textContent = "@" + (v.author.username || "");
+    who.addEventListener("click", function () { openUser(v.author.username, "feed"); });
     info.appendChild(who);
     if (v.caption) {
       var cap = document.createElement("p");
@@ -604,6 +683,215 @@
       likePending[v.id] = false;
       refreshItem(item);
     });
+  }
+
+  /* ---------- ডিসকভার ---------- */
+
+  function avatarEl(name, cls) {
+    var el = document.createElement("div");
+    el.className = cls || "av";
+    el.textContent = firstChar(name);
+    return el;
+  }
+
+  function followButton(u) {
+    var btn = document.createElement("button");
+    btn.className = "fbtn";
+    function paint() { btn.textContent = u.is_following ? "ফলো করছেন" : "ফলো করুন"; btn.className = "fbtn" + (u.is_following ? " on" : ""); }
+    paint();
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      toggleFollow(u, paint);
+    });
+    return btn;
+  }
+
+  var followPending = {};
+  function toggleFollow(u, repaint, after) {
+    if (followPending[u.id]) { return; }
+    followPending[u.id] = true;
+    var want = !u.is_following;
+    var before = { is_following: u.is_following, followers: u.followers };
+    u.is_following = want;
+    u.followers = Math.max(0, (u.followers || 0) + (want ? 1 : -1));
+    repaint();
+    if (after) { after(); }
+    api("/api/follow", { user_id: u.id, follow: want }).then(function (result) {
+      if (!result.ok) { throw new Error(result.data.error || ""); }
+      u.is_following = result.data.following;
+      u.followers = result.data.followers;
+    }).catch(function (error) {
+      u.is_following = before.is_following;
+      u.followers = before.followers;
+      toast(error && error.message ? error.message : "ফলো করা যায়নি, আবার চেষ্টা করুন");
+    }).then(function () {
+      followPending[u.id] = false;
+      repaint();
+      if (after) { after(); }
+    });
+  }
+
+  function userCard(u) {
+    var card = document.createElement("div");
+    card.className = "ucard";
+    card.appendChild(avatarEl(u.display_name || u.username));
+    var name = document.createElement("b");
+    name.textContent = u.display_name || u.username;
+    var handle = document.createElement("span");
+    handle.textContent = "@" + u.username;
+    card.appendChild(name);
+    card.appendChild(handle);
+    card.appendChild(followButton(u));
+    card.addEventListener("click", function () { openUser(u.username, "discover"); });
+    return card;
+  }
+
+  function userRow(u) {
+    var row = document.createElement("div");
+    row.className = "urow";
+    row.appendChild(avatarEl(u.display_name || u.username));
+    var tx = document.createElement("div");
+    tx.className = "tx";
+    var name = document.createElement("b");
+    name.textContent = u.display_name || u.username;
+    var handle = document.createElement("span");
+    handle.textContent = "@" + u.username + " · " + fmtCount(u.followers) + " ফলোয়ার";
+    tx.appendChild(name);
+    tx.appendChild(handle);
+    row.appendChild(tx);
+    row.appendChild(followButton(u));
+    row.addEventListener("click", function () { openUser(u.username, "discover"); });
+    return row;
+  }
+
+  function videoCell(v, lib) {
+    var cell = document.createElement("button");
+    cell.className = "cell";
+    cell.type = "button";
+    cell.setAttribute("aria-label", v.caption || "ভিডিও চালান");
+    if (/^https:\/\//.test(v.thumbnail || "")) {
+      var img = document.createElement("img");
+      img.alt = "";
+      img.loading = "lazy";
+      img.src = v.thumbnail;
+      img.onerror = function () { img.style.display = "none"; };
+      cell.appendChild(img);
+    }
+    if (v.duration) {
+      var dur = document.createElement("span");
+      dur.className = "dur";
+      dur.textContent = fmtDuration(v.duration);
+      cell.appendChild(dur);
+    }
+    cell.addEventListener("click", function () { libraryId = lib; openPlayer(v); });
+    return cell;
+  }
+
+  function discoverMessage(text) {
+    var m = $("d-msg");
+    m.textContent = text || "";
+    m.hidden = !text;
+  }
+
+  function loadDiscover() {
+    api("/api/discover", { action: "home" }).then(function (result) {
+      if (!result.ok) { throw new Error(result.data.error || ""); }
+      discoverMessage("");
+      var box = $("d-creators");
+      box.textContent = "";
+      result.data.creators.forEach(function (u) { box.appendChild(userCard(u)); });
+      if (!result.data.creators.length) {
+        var none = document.createElement("div");
+        none.className = "empty";
+        none.style.padding = "12px 0";
+        none.textContent = "এখনো কোনো ক্রিয়েটর নেই";
+        box.appendChild(none);
+      }
+      var grid = $("d-trending");
+      grid.textContent = "";
+      result.data.trending.forEach(function (v) { grid.appendChild(videoCell(v, result.data.libraryId)); });
+    }).catch(function (error) {
+      discoverMessage(error && error.message ? error.message : "ডিসকভার লোড করা যায়নি");
+    });
+  }
+
+  function runSearch() {
+    var q = $("d-q").value.trim();
+    var results = $("d-results");
+    if (!q) { results.hidden = true; $("d-home").hidden = false; discoverMessage(""); return; }
+    var seq = ++searchSeq;
+    api("/api/discover", { action: "search", q: q }).then(function (result) {
+      if (seq !== searchSeq) { return; }
+      if (!result.ok) { throw new Error(result.data.error || ""); }
+      $("d-home").hidden = true;
+      results.hidden = false;
+      results.textContent = "";
+      discoverMessage("");
+      result.data.users.forEach(function (u) { results.appendChild(userRow(u)); });
+      if (!result.data.users.length) { discoverMessage("কাউকে পাওয়া যায়নি"); }
+    }).catch(function (error) {
+      if (seq !== searchSeq) { return; }
+      discoverMessage(error && error.message ? error.message : "খোঁজা যায়নি, আবার চেষ্টা করুন");
+    });
+  }
+
+  /* ---------- অন্যের প্রোফাইল ---------- */
+
+  function paintFollowBtn() {
+    var btn = $("ou-follow");
+    btn.textContent = viewed.is_following ? "ফলো করছেন" : "ফলো করুন";
+    btn.className = viewed.is_following ? "btn ghost-wide" : "btn primary";
+    $("ou-followers").textContent = fmtCount(viewed.followers);
+  }
+
+  function openUser(username, from) {
+    if (!username) { return; }
+    if (user && username === user.username) { show("profile"); loadVideos(); return; }
+    userReturn = current === "user" ? userReturn : (from || current);
+    viewed = null;
+    var seq = ++viewedLoadSeq;
+    $("ou-username").textContent = "@" + username;
+    $("ou-avatar").textContent = firstChar(username);
+    $("ou-name").textContent = "";
+    $("ou-bio").textContent = "";
+    ["ou-following", "ou-followers", "ou-likes"].forEach(function (id) { $(id).textContent = "–"; });
+    $("ou-follow").disabled = true;
+    $("ou-grid").textContent = "";
+    $("ou-empty").hidden = true;
+    $("ou-error").hidden = true;
+    show("user");
+    api("/api/user", { username: username }).then(function (result) {
+      if (seq !== viewedLoadSeq) { return; }
+      if (!result.ok) { throw new Error(result.data.error || ""); }
+      var u = result.data.user;
+      viewed = u;
+      $("ou-username").textContent = "@" + u.username;
+      $("ou-avatar").textContent = firstChar(u.display_name);
+      $("ou-name").textContent = u.display_name || "";
+      $("ou-bio").textContent = u.bio || "";
+      $("ou-following").textContent = fmtCount(u.following);
+      $("ou-likes").textContent = fmtCount(u.likes);
+      $("ou-follow").disabled = false;
+      paintFollowBtn();
+      var grid = $("ou-grid");
+      result.data.videos.forEach(function (v) { grid.appendChild(videoCell(v, result.data.libraryId)); });
+      $("ou-empty").hidden = result.data.videos.length > 0;
+    }).catch(function (error) {
+      if (seq !== viewedLoadSeq) { return; }
+      $("ou-error").textContent = error && error.message ? error.message : "প্রোফাইল আনা যায়নি";
+      $("ou-error").hidden = false;
+    });
+  }
+
+  function loadMyStats() {
+    if (!user) { return; }
+    api("/api/user", { username: user.username }).then(function (result) {
+      if (!result.ok) { return; }
+      var u = result.data.user;
+      $("p-following").textContent = fmtCount(u.following);
+      $("p-followers").textContent = fmtCount(u.followers);
+      $("p-likes").textContent = fmtCount(u.likes);
+    }).catch(function () { /* সংখ্যা না এলে 0 থাকবে */ });
   }
 
   /* ---------- কমেন্ট ---------- */
@@ -1088,7 +1376,13 @@
     ["share", "buy", "liked-tab"].forEach(function (id) { $(id).addEventListener("click", soon); });
     Array.prototype.forEach.call(document.querySelectorAll("[data-soon]"), function (el) { el.addEventListener("click", soon); });
     $("nav-home").addEventListener("click", function () { if (current === "feed") { $("feed").scrollTo({ top: 0, behavior: "smooth" }); } else { show("feed"); } });
-    $("nav-profile").addEventListener("click", function () { show("profile"); loadVideos(); });
+    $("nav-profile").addEventListener("click", function () { show("profile"); loadVideos(); loadMyStats(); });
+    $("nav-discover").addEventListener("click", function () { show("discover"); loadDiscover(); });
+    $("d-q").addEventListener("input", function () { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 350); });
+    $("ou-back").addEventListener("click", goBack);
+    $("ou-follow").addEventListener("click", function () { if (viewed) { toggleFollow(viewed, paintFollowBtn); } });
+    $("ou-message").addEventListener("click", soon);
+    $("ou-gift").addEventListener("click", soon);
     $("sh-close").addEventListener("click", closeSheet);
     $("sh-form").addEventListener("submit", sendComment);
     $("sheet").addEventListener("click", function (e) { if (e.target === $("sheet")) { closeSheet(); } });
@@ -1129,6 +1423,7 @@
     show("feed");
     loadFeed(true);
     loadVideos();
+    loadMyStats();
   }).catch(function () {
     fail("সার্ভারের সাথে যোগাযোগ করা যায়নি");
   });
