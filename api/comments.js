@@ -126,6 +126,7 @@ async function handler(req, res) {
     }
     res.status(200).json({ ok: true, comments_count: await commentCount(config, gone[0].video_id) });
   } catch (e) {
+    console.error("comments error:", e && e.message);
     res.status(500).json({ error: "কমেন্টের কাজ করা যায়নি, আবার চেষ্টা করুন" });
   }
 }
