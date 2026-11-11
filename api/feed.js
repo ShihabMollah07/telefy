@@ -35,7 +35,7 @@ async function handler(req, res) {
 
     let path =
       "videos?status=eq.ready" +
-      "&select=id,bunny_video_id,caption,duration_seconds,likes_count,comments_count,created_at,users(username,display_name)" +
+      "&select=id,bunny_video_id,caption,duration_seconds,likes_count,comments_count,created_at,users!user_id(username,display_name)" +
       "&order=created_at.desc&limit=" + PAGE_SIZE;
     if (before) path += "&created_at=lt." + encodeURIComponent(before);
 
