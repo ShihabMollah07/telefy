@@ -55,6 +55,7 @@ async function handler(req, res) {
     }
     res.status(200).json({ liked: auth.body.like, likes: rows[0].likes_count });
   } catch (e) {
+    console.error("like error:", e && e.message);
     res.status(500).json({ error: "লাইক দেওয়া যায়নি, আবার চেষ্টা করুন" });
   }
 }
