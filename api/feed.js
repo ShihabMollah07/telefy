@@ -40,7 +40,7 @@ async function handler(req, res) {
     if (before) path += "&created_at=lt." + encodeURIComponent(before);
 
     const listRes = await shared.sb(config, path);
-    if (!listRes.ok) throw new Error("feed failed: " + listRes.status);
+    if (!listRes.ok) throw new Error("feed failed: " + listRes.status + " " + (await listRes.text()).slice(0, 300));
     const rows = await listRes.json();
 
     let likedIds = new Set();
@@ -50,7 +50,7 @@ async function handler(req, res) {
         config,
         "video_likes?user_id=eq." + user.id + "&video_id=in.(" + ids + ")&select=video_id"
       );
-      if (!likeRes.ok) throw new Error("likes failed: " + likeRes.status);
+      if (!likeRes.ok) throw new Error("likes failed: " + likeRes.status + " " + (await likeRes.text()).slice(0, 300));
       likedIds = new Set((await likeRes.json()).map((l) => l.video_id));
     }
 
@@ -76,6 +76,7 @@ async function handler(req, res) {
       next: rows.length === PAGE_SIZE ? rows[rows.length - 1].created_at : null,
     });
   } catch (e) {
+    console.error("feed error:", e && e.message);
     res.status(500).json({ error: "ফিড আনা যায়নি, একটু পরে আবার চেষ্টা করুন" });
   }
 }
