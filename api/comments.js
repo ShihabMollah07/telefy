@@ -7,7 +7,7 @@ const CURSOR_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:
 const PAGE_SIZE = 30;
 const MAX_CHARS = 300;
 const RATE_LIMIT = 8; // প্রতি মিনিটে সর্বোচ্চ ৮টি কমেন্ট
-const SELECT = "id,body,created_at,user_id,users(username,display_name)";
+const SELECT = "id,body,created_at,user_id,users!user_id(username,display_name)";
 
 function shape(row, myId) {
   return {
