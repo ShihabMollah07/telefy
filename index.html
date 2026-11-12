@@ -194,6 +194,20 @@
   .irow.unread .last span { color: var(--text); font-weight: 600; }
   .irow .dot { flex: none; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--brand); color: #fff; font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; }
 
+  /* কয়েন কেনা */
+  .sheet.auto { height: auto; max-height: 88vh; overflow-y: auto; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .buy-body { padding: 12px 16px 4px; }
+  .buy-bal { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: 14px; background: linear-gradient(135deg, #2A2210, #1A150A); border: 1px solid #4A3B14; font-size: 14px; color: #E8D9A8; }
+  .buy-bal strong { font-size: 20px; color: #fff; }
+  .terms { margin: 12px 0 4px; padding: 10px 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); font-size: 12px; line-height: 1.6; color: var(--muted); }
+  .agree { display: flex; align-items: center; gap: 10px; margin: 10px 0 4px; font-size: 14px; }
+  .agree input { width: 20px; height: 20px; accent-color: var(--brand); flex: none; }
+  .packs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+  .pack { border: 1px solid var(--line2); background: var(--bg); color: var(--text); border-radius: 14px; padding: 14px 8px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 18px; font-weight: 700; }
+  .pack small { font-size: 13px; font-weight: 600; color: var(--gold); }
+  .pack:disabled { opacity: 0.45; }
+  .buy-msg { min-height: 20px; margin: 10px 0 0; text-align: center; font-size: 13px; color: var(--err); }
+
   .toast { position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%); background: #24242C; color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity 0.2s; max-width: 90%; text-align: center; z-index: 60; }
   .toast.show { opacity: 1; }
 </style>
@@ -427,6 +441,20 @@
     </div>
   </div>
 
+  <!-- কয়েন কেনা -->
+  <div class="sheet-bg" id="buy-sheet" hidden>
+    <div class="sheet auto" role="dialog" aria-label="কয়েন কিনুন">
+      <div class="sh-top"><span>কয়েন কিনুন</span><button id="buy-close" aria-label="বন্ধ করুন">✕</button></div>
+      <div class="buy-body">
+        <div class="buy-bal"><span>আপনার কয়েন</span><strong id="buy-bal">–</strong></div>
+        <div class="terms">কয়েন একটি ভার্চুয়াল জিনিস। এর নিজস্ব নগদ মূল্য নেই, কেনা কয়েন ফেরত বা অন্যকে হস্তান্তর করা যায় না। পেমেন্ট Telegram Stars-এ হয়। সমস্যা হলে বটে /paysupport লিখুন।</div>
+        <label class="agree"><input type="checkbox" id="buy-agree"><span>আমি শর্তাবলী মেনে নিচ্ছি</span></label>
+        <div class="packs" id="buy-packs"></div>
+        <div class="buy-msg" id="buy-msg" role="alert"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ভিডিও চালানোর পর্দা -->
   <div class="player" id="player" hidden>
     <button class="close" id="player-close" aria-label="বন্ধ করুন">
@@ -474,6 +502,9 @@
   var viewed = null;
   var viewedLoadSeq = 0;
   var userReturn = "feed";
+
+  // কয়েন কেনা
+  var buyBusy = false;
 
   // মেসেজ
   var chatWith = null;
@@ -529,11 +560,12 @@
   function playerOpen() { return !$("player").hidden; }
 
   function sheetOpen() { return !$("sheet").hidden; }
+  function buyOpen() { return !$("buy-sheet").hidden; }
 
   function syncBackButton() {
     if (!(tg && tg.BackButton)) return;
     var onTab = current === "profile" || current === "feed" || current === "discover" || current === "inbox";
-    if (!onTab || playerOpen() || sheetOpen()) { tg.BackButton.show(); } else { tg.BackButton.hide(); }
+    if (!onTab || playerOpen() || sheetOpen() || buyOpen()) { tg.BackButton.show(); } else { tg.BackButton.hide(); }
   }
 
   function show(name) {
@@ -560,6 +592,7 @@
   }
 
   function goBack() {
+    if (buyOpen()) { closeBuy(); return; }
     if (sheetOpen()) { closeSheet(); return; }
     if (playerOpen()) { closePlayer(); return; }
     if (current === "upload" && uploading) { toast("আপলোড চলছে, থামাতে 'আপলোড বাতিল করুন' চাপুন"); return; }
@@ -956,8 +989,96 @@
     });
   }
 
+  /* ---------- কয়েন কেনা ---------- */
+
+  function setCoins(n) {
+    user.coins = n;
+    $("p-coins").textContent = n;
+    $("buy-bal").textContent = n;
+  }
+
+  function buyMessage(text) { $("buy-msg").textContent = text || ""; }
+
+  function openBuy() {
+    buyMessage("");
+    $("buy-bal").textContent = user.coins;
+    $("buy-sheet").hidden = false;
+    syncBackButton();
+    api("/api/coins", { action: "packs" }).then(function (result) {
+      if (!result.ok) { throw new Error(result.data.error || ""); }
+      setCoins(result.data.coins);
+      var box = $("buy-packs");
+      box.textContent = "";
+      result.data.packs.forEach(function (pack) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "pack";
+        var coins = document.createElement("span");
+        coins.textContent = pack.coins + " কয়েন";
+        var price = document.createElement("small");
+        price.textContent = "⭐ " + pack.stars + " Stars";
+        b.appendChild(coins);
+        b.appendChild(price);
+        b.addEventListener("click", function () { buyPack(pack); });
+        box.appendChild(b);
+      });
+    }).catch(function (error) {
+      buyMessage(error && error.message ? error.message : "প্যাকেজ আনা যায়নি");
+    });
+  }
+
+  function closeBuy() {
+    $("buy-sheet").hidden = true;
+    syncBackButton();
+  }
+
+  function waitForCoins(before, tries) {
+    api("/api/coins", { action: "balance" }).then(function (result) {
+      if (result.ok && result.data.coins > before) {
+        setCoins(result.data.coins);
+        buyBusy = false;
+        buyMessage("");
+        toast("কয়েন যোগ হয়েছে");
+        return;
+      }
+      if (tries > 0) { setTimeout(function () { waitForCoins(before, tries - 1); }, 1500); return; }
+      buyBusy = false;
+      buyMessage("পেমেন্ট হয়েছে, কয়েন আসতে একটু দেরি হচ্ছে। কিছুক্ষণ পর প্রোফাইল খুলে দেখুন।");
+    }).catch(function () {
+      if (tries > 0) { setTimeout(function () { waitForCoins(before, tries - 1); }, 1500); return; }
+      buyBusy = false;
+    });
+  }
+
+  function buyPack(pack) {
+    if (buyBusy) { return; }
+    if (!$("buy-agree").checked) { buyMessage("আগে শর্তাবলী মেনে নিন"); return; }
+    if (!(tg && tg.openInvoice)) { buyMessage("আপনার Telegram অ্যাপ আপডেট করুন, তারপর আবার চেষ্টা করুন"); return; }
+    buyMessage("");
+    buyBusy = true;
+    var before = user.coins;
+    api("/api/coins", { action: "invoice", pack_id: pack.id }).then(function (result) {
+      if (!result.ok) { throw new Error(result.data.error || "পেমেন্ট শুরু করা যায়নি"); }
+      tg.openInvoice(result.data.link, function (status) {
+        if (status === "paid") {
+          buyMessage("পেমেন্ট হয়েছে, কয়েন যোগ হচ্ছে...");
+          waitForCoins(before, 8);
+        } else {
+          buyBusy = false;
+          if (status === "failed") { buyMessage("পেমেন্ট হয়নি, আবার চেষ্টা করুন"); }
+        }
+      });
+    }).catch(function (error) {
+      buyBusy = false;
+      buyMessage(error && error.message ? error.message : "পেমেন্ট শুরু করা যায়নি");
+    });
+  }
+
   function loadMyStats() {
     if (!user) { return; }
+    api("/api/coins", { action: "balance" }).then(function (result) {
+      if (result.ok) { setCoins(result.data.coins); }
+    }).catch(function () { /* আগের সংখ্যাই থাকবে */ });
     api("/api/user", { username: user.username }).then(function (result) {
       if (!result.ok) { return; }
       var u = result.data.user;
@@ -1664,7 +1785,10 @@
     $("save").addEventListener("click", save);
     $("f-bio").addEventListener("input", updateBioCount);
     Array.prototype.forEach.call(genderInputs(), function (input) { input.addEventListener("change", syncGender); });
-    ["share", "buy", "liked-tab"].forEach(function (id) { $(id).addEventListener("click", soon); });
+    ["share", "liked-tab"].forEach(function (id) { $(id).addEventListener("click", soon); });
+    $("buy").addEventListener("click", openBuy);
+    $("buy-close").addEventListener("click", closeBuy);
+    $("buy-sheet").addEventListener("click", function (e) { if (e.target === $("buy-sheet")) { closeBuy(); } });
     Array.prototype.forEach.call(document.querySelectorAll("[data-soon]"), function (el) { el.addEventListener("click", soon); });
     $("nav-home").addEventListener("click", function () { if (current === "feed") { $("feed").scrollTo({ top: 0, behavior: "smooth" }); } else { show("feed"); } });
     $("nav-profile").addEventListener("click", function () { show("profile"); loadVideos(); loadMyStats(); });
